@@ -1,8 +1,7 @@
 import axios from 'axios';
-import { clearStorage } from '../Utils/localStorage';
+import { clearStorage } from '../Utils/storage';
 
-
- const API = axios.create ({ baseURL: 'http://192.168.133.120/graphql' });
+  const API = axios.create ({ baseURL: 'http://localhost:4000/api/' });
 
 
 API.interceptors.request.use(request => {

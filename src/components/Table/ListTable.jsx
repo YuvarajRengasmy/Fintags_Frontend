@@ -243,7 +243,7 @@ class Table extends Component {
   };
 
   render() {
-    const { dataLoaded, excelData, error, selectAll, selectedRows, statusFilter, sortBy, sortOrder, columns } = this.state;
+    const { dataLoaded, excelData, selectAll, selectedRows, statusFilter, sortBy, sortOrder, columns } = this.state;
 
     const filteredData = dataLoaded && excelData ? 
       excelData.filter(item =>

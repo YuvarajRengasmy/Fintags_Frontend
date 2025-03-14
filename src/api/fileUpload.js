@@ -2,7 +2,7 @@ import API from "./api"
 import { FileUpload } from "./endpoints"
 
 export const saveFileUpload = (data) => {
-    return API.post(`${FileUpload}/save`, data)
+    return API.post(`${FileUpload}/create`, data)
 }
 
 export const getallFileUpload = () => {
@@ -10,7 +10,7 @@ export const getallFileUpload = () => {
 }
 
 export const getSingleFileUpload = (data) => {
-    return API.get(`${FileUpload}/getSingleFileUpload`, { params: { _id: data } });
+    return API.get(`${FileUpload}/getSingleUpload`, { params: { _id: data } });
   };
   export const deleteFileUpload = (data) => {
     return API.delete(`${FileUpload}`, { params: { _id: data } });
@@ -20,5 +20,5 @@ export const getSingleFileUpload = (data) => {
   };
 
   export const getFilterFileUpload = (data) => {
-    return API.put(`${FileUpload}/getFilterFileUpload`, data);
+    return API.put(`${FileUpload}/getFilterFile`, data);
   };

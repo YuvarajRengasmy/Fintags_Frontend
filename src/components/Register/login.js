@@ -62,12 +62,12 @@ function Login() {
     if (handleErrors(newError)) {
       loginUser(inputs).then(res => {
         let token = res?.data?.result?.token;
-        let studentId = res?.data?.result?.companyDetails?._id;
+        let companyId = res?.data?.result?.companyDetails?._id;
         let loginType = res?.data?.result?.loginType;
        
          
           let data = {
-            token: token, studentId: studentId, loginType: loginType
+            token: token, companyId: companyId, loginType: loginType
           };
           saveToken(data);
           if (isAuthenticated()) {

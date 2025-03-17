@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from "react";
+import { ExportCsvService } from "../../Utils/excel";
+import { updateFileUpload, getSingleFileUpload, deleteFileUpload } from "../../api/fileUpload";
+import { Dialog, DialogContent, } from "@mui/material";
 import { toast } from "react-toastify";
 import { Link, useLocation } from "react-router-dom";
 import { getallFileUpload } from "../../api/fileUpload";
 import { saveRegisterNumber } from "../../api/registerNumber";
-import { Dialog, DialogContent } from "@mui/material";
 import CreateTable from "../Table/AddTable";
+
 
 const Table = () => {
   const [dataLoaded, setDataLoaded] = useState([]);
-  const [selectedRows, setSelectedRows] = useState([]);
+  const [error, setError] = useState(null);
   const [selectAll, setSelectAll] = useState(false);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [sortBy, setSortBy] = useState("sno");
+  const [sortOrder, setSortOrder] = useState("asc");
+  const [deletingId, setDeletingId] = useState(null);
   const [columns, setColumns] = useState([
     { name: "sno", label: "S.No", isSelected: true },
     { name: "lei_number", label: "LEI Number", isSelected: true },
@@ -26,64 +33,276 @@ const Table = () => {
   ]);
 
   useEffect(() => {
+    getallUniversityCount();
+  }, []);
+
+  const getallUniversityCount = () => {
     getallFileUpload()
       .then((res) => {
-        setDataLoaded(res?.data?.result || []);
+        console.log("yuvarajres");
+        const filteredData = filterDuplicateData(res?.data?.result || []);
+        setDataLoaded(filteredData);
       })
       .catch((err) => {
         console.log("Error fetching data:", err);
+        setError(err.message);
       });
-  }, []);
+  };
 
-  const handleSelectRow = (index) => {
-    setSelectedRows((prevSelected) =>
-      prevSelected.includes(index)
-        ? prevSelected.filter((i) => i !== index)
-        : [...prevSelected, index]
+  // Function to filter out duplicates based on contact_name and phone number
+  const filterDuplicateData = (data) => {
+    const seen = new Set();
+    return data.filter((item) => {
+      const uniqueKey = `${item.contact_name}-${item.phone}`;
+      if (seen.has(uniqueKey)) {
+        return false; // Skip duplicate data
+      } else {
+        seen.add(uniqueKey);
+        return true; // Keep the unique data
+      }
+    });
+  };
+
+  const toggleColumnSelection = (name) => {
+    setColumns((prevColumns) =>
+      prevColumns.map((col) =>
+        col.name === name ? { ...col, isSelected: !col.isSelected } : col
+      )
     );
   };
 
-  const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedRows([]);
-    } else {
-      setSelectedRows(dataLoaded.map((_, index) => index));
-    }
-    setSelectAll(!selectAll);
+   const handleSelectRow = (index) => {
+     setSelectedRows((prevSelected) =>
+       prevSelected.includes(index)
+         ? prevSelected.filter((i) => i !== index)
+         : [...prevSelected, index]
+     );
+   };
+ 
+   const handleSelectAll = () => {
+     if (selectAll) {
+       setSelectedRows([]);
+     } else {
+       setSelectedRows(dataLoaded.map((_, index) => index));
+     }
+     setSelectAll(!selectAll);
+   };
+ 
+   // Handle Save in the frontend
+ const handleSave = () => {
+   const selectedData = selectAll ? dataLoaded : selectedRows.map((index) => dataLoaded[index]);
+ 
+   // Ensure all records have required fields, or fill them with empty/default values
+   const validData = selectedData.map((item) => ({
+     company_name: item.company_name || '',  // Default to empty string if missing
+     registrationNumber: item.registrationNumber || '',  // Default to empty string if missing
+     business_category: item.business_category || '',  // Default to empty string if missing
+     sub_category: item.sub_category || '',  // Default to empty string if missing
+     contact_name: item.contact_name || '',  // Default to empty string if missing
+     designation: item.designation || '',  // Default to empty string if missing
+     email: item.email || '',  // Default to empty string if missing
+     website: item.website || '',  // Default to empty string if missing
+     phone: item.phone || '',  // Default to empty string if missing
+     filling_month: item.filling_month || '',  // Default to empty string if missing
+     file_count: item.file_count || 0,  // Default to 0 if missing
+     status: item.status || '',  // Default to empty string if missing
+     region: item.region || ''  // Default to empty string if missing
+   }));
+ 
+   // Now send this valid data to the backend
+   saveRegisterNumber(validData)
+     .then((res) => {
+       toast.success("Data saved successfully");
+     })
+     .catch((err) => {
+       toast.error("Error saving data");
+     });
+ };
+
+  const handleSort = (columnName) => {
+    const order = sortOrder === "asc" ? "desc" : "asc";
+    setSortBy(columnName);
+    setSortOrder(order);
+
+    const sortedData = [...dataLoaded].sort((a, b) => {
+      const aVal = a[columnName] || "";
+      const bVal = b[columnName] || "";
+      if (aVal < bVal) return order === "asc" ? -1 : 1;
+      if (aVal > bVal) return order === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setDataLoaded(sortedData);
   };
 
-  // Handle Save in the frontend
-const handleSave = () => {
-  const selectedData = selectAll ? dataLoaded : selectedRows.map((index) => dataLoaded[index]);
+  const getRowColor = (status) => {
+    if (status === "client") {
+      return "#008631"; // Active status color (green)
+    } else if (status === "DND") {
+      return "#FF0000"; // Inactive status color (red)
+    }
+    return "#32302f"; // Default color (no specific status)
+  };
 
-  // Ensure all records have required fields, or fill them with empty/default values
-  const validData = selectedData.map((item) => ({
-    company_name: item.company_name || '',  // Default to empty string if missing
-    registrationNumber: item.registrationNumber || '',  // Default to empty string if missing
-    business_category: item.business_category || '',  // Default to empty string if missing
-    sub_category: item.sub_category || '',  // Default to empty string if missing
-    contact_name: item.contact_name || '',  // Default to empty string if missing
-    designation: item.designation || '',  // Default to empty string if missing
-    email: item.email || '',  // Default to empty string if missing
-    website: item.website || '',  // Default to empty string if missing
-    phone: item.phone || '',  // Default to empty string if missing
-    filling_month: item.filling_month || '',  // Default to empty string if missing
-    file_count: item.file_count || 0,  // Default to 0 if missing
-    status: item.status || '',  // Default to empty string if missing
-    region: item.region || ''  // Default to empty string if missing
-  }));
+  const location = useLocation();
+  const id = new URLSearchParams(location.search).get("id");
 
-  // Now send this valid data to the backend
-  saveRegisterNumber(validData)
-    .then((res) => {
-      toast.success("Data saved successfully");
-    })
-    .catch((err) => {
-      toast.error("Error saving data");
+  const initialStateInputs = {
+    company_name: "",
+    registrationNumber: "",
+    business_category: "",
+    sub_category: "",
+    contact_name: "",
+    designation: "",
+    email: "",
+    website: "",
+    phone: "",
+    filling_month: "",
+    file_count: "",
+    status: "",
+    region: "",
+  };
+
+  const initialStateErrors = {
+    company_name: { required: false },
+    registrationNumber: { required: false },
+    business_category: { required: false },
+    sub_category: { required: false },
+  };
+
+  const [inputs, setInputs] = useState(initialStateInputs);
+  const [errors, setErrors] = useState(initialStateErrors);
+  const [deleteId, setDeleteId] = useState();
+  const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    getPromotionList();
+    deleteFileData();
+  }, []);
+
+  const getPromotionList = () => {
+    getSingleFileUpload(id)
+      .then((res) => {
+        setInputs(res?.data?.result || []);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
+  const handleInputs = (event) => {
+    setInputs({ ...inputs, [event.target.name]: event.target.value });
+  };
+
+  const handleValidation = (data) => {
+    let newErrors = { ...initialStateErrors };
+
+    if (data.company_name === "") {
+      newErrors.company_name = { required: true };
+    }
+    if (data.registrationNumber === "") {
+      newErrors.registrationNumber = { required: true };
+    }
+    if (data.business_category === "") {
+      newErrors.business_category = { required: true };
+    }
+    if (data.sub_category === "") {
+      newErrors.sub_category = { required: true };
+    }
+
+    return newErrors;
+  };
+
+  const handleErrors = (obj) => {
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const prop = obj[key];
+        if (prop.required === true) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const newError = handleValidation(inputs);
+    setErrors(newError);
+
+    if (handleErrors(newError)) {
+      setIsSubmitting(true);
+
+      updateFileUpload(inputs)
+        .then((res) => {
+          toast.success(res?.data?.message);
+          setInputs(initialStateInputs);
+          setErrors(initialStateErrors);
+          setIsSubmitting(false);
+        })
+        .catch((err) => {
+          toast.error(err?.response?.data?.message);
+          setIsSubmitting(false);
+        });
+    }
+  };
+
+  const inputFields = [
+    { name: "company_name", label: "Company Name" },
+    { name: "registrationNumber", label: "Registration Number" },
+    { name: "business_category", label: "Business Category" },
+    { name: "sub_category", label: "Sub Category" },
+    { name: "contact_name", label: "Contact Name" },
+    { name: "designation", label: "Designation" },
+    { name: "email", label: "Email" },
+    { name: "website", label: "Website" },
+    { name: "phone", label: "Phone" },
+    { name: "filling_month", label: "Filling Month" },
+    { name: "file_count", label: "File Count" },
+    { name: "status", label: "Status" },
+    { name: "region", label: "Region" },
+  ];
+
+  const handleEdit = (item) => {
+    setInputs({
+      _id: item._id,
+      company_name: item.company_name,
+      registrationNumber: item.registrationNumber,
+      business_category: item.business_category,
+      sub_category: item.sub_category,
+      contact_name: item.contact_name,
+      designation: item.designation,
+      email: item.email,
+      website: item.website,
+      phone: item.phone,
+      filling_month: item.filling_month,
+      file_count: item.file_count,
+      status: item.status,
+      region: item.region,
     });
-};
+  };
 
+  const deleteFileData = () => {
+    deleteFileUpload(deleteId)
+      .then((res) => {
+        toast.success(res?.data?.message);
+        closePopup();
+        getallUniversityCount();
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
 
+  const openPopup = (data) => {
+    setOpen(true);
+    setDeleteId(data);
+  };
+
+  const closePopup = () => {
+    setOpen(false);
+  };
 
   return (
     <div className="content">
@@ -98,27 +317,60 @@ const handleSave = () => {
           </nav>
         </div>
         <div className="mb-2 d-flex align-items-center">
+      
           <CreateTable />
         </div>
       </div>
-
+{/* Table List */}
       <div className="card">
         <div className="card-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
           <div className="d-flex my-xl-auto right-content align-items-start flex-wrap row-gap-3">
             <button className="me-3 btn btn-white">File Upload</button>
-            <button className="btn btn-white" style={{ borderColor: "LightGray" }}>
+            <button onClick={handleSave} className="btn btn-white" style={{ borderColor: "LightGray" }}>
               <Link to="/RegisterNumber">Register Number</Link>
             </button>
+          </div>
+          <div className="d-flex my-xl-auto right-content align-items-center flex-wrap row-gap-3">
+            <div className="dropdown">
+              <button
+                className="dropdown-toggle btn btn-white d-inline-flex align-items-center dropdown-toggle"
+                type="button"
+                id="dropdownMenuButton"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                Select Columns
+              </button>
+              <ul className="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                {columns.map((column) => (
+                  <li key={column.name}>
+                    <div className="form-check">
+                    <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="select-all"
+                        checked={selectAll}
+                        onChange={handleSelectAll}
+                      />
+                      <label className="form-check-label" htmlFor={column.name}>
+                        {column.label}
+                      </label>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
 
         <div className="card-body p-0">
           <div className="table-responsive">
-            <table>
-              <thead style={{ backgroundColor: "#E5E7EB" }}>
-                <tr>
-                  <th className="no-sort">
-                    <div className="form-check form-check-md">
+            <div className="table">
+              <table>
+                <thead style={{ backgroundColor: "#E5E7EB" }}>
+                  <tr>
+                    <th className="no-sort">
+                      <div className="form-check form-check-md">
                       <input
                         className="form-check-input"
                         type="checkbox"
@@ -126,49 +378,157 @@ const handleSave = () => {
                         checked={selectAll}
                         onChange={handleSelectAll}
                       />
-                    </div>
-                  </th>
-                  {columns.filter((column) => column.isSelected).map((column) => (
-                    <th key={column.name}>{column.label}</th>
-                  ))}
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dataLoaded.map((item, index) => (
-                  <tr key={index}>
-                    <td>
+                      </div>
+                    </th>
+                    {columns.filter((column) => column.isSelected).map((column) => (
+                      <th key={column.name}>
+                        {column.label}
+                        <Link onClick={() => handleSort(column.name)}>
+                          &nbsp;&nbsp;
+                          <i className="fas fa-sort gap-3" style={{ color: "LightGray" }}></i>
+                          {sortBy === column.name ? (sortOrder === "asc" ? "↓" : "↑") : ""}
+                        </Link>
+                      </th>
+                    ))}
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dataLoaded?.map((item, index) => (
+                    <tr key={index} style={{ fontSize: "5px", color: getRowColor(item.status) }}>
+                      <td>
                       <input
                         type="checkbox"
                         checked={selectedRows.includes(index)}
                         onChange={() => handleSelectRow(index)}
                       />
-                    </td>
-                    {columns.filter((column) => column.isSelected).map((column) => (
-                      <td key={column.name}>{item[column.name] || "-"}</td>
-                    ))}
-                    <td>
-                      <div className="action-icon d-inline-flex">
-                        <Link className="dropdown-item">
-                          <i className="far fa-edit text-warning me-1"></i>
-                        </Link>
-                        <Link className="dropdown-item">
-                          <i className="far fa-trash-alt text-danger me-1"></i>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      {columns.filter((column) => column.isSelected).map((column) => (
+                        <th style={{ fontSize: "14px", fontWeight: "inherit" }} key={column.name}>
+                          {item[column.name] || "-"}
+                        </th>
+                      ))}
+                      <td>
+                        <div className="action-icon d-inline-flex">
+
+                          <Link
+                            className="dropdown-item"
+                            data-bs-toggle="modal"
+                            data-bs-target="#edit_contact"
+                            onClick={() => handleEdit(item)}
+                          >
+                            <i className="far fa-edit text-warning me-1"></i>
+                          </Link>
+                          <Link
+                            className="dropdown-item"
+                            onClick={() => {
+                              openPopup(item?._id);
+                            }}
+                          >
+                            <i className="far fa-trash-alt text-danger me-1"></i>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
 
-      <button onClick={handleSave} className="btn btn-primary">
-        Save Selected Data
-      </button>
+      {/* Edit Modal */}
+      <div
+        className="modal fade"
+        id="edit_contact"
+        tabIndex="-1"
+        aria-labelledby="edit_contactLabel"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h4 className="modal-title" id="edit_contactLabel">
+                Edit Contact
+              </h4>
+              <button
+                type="button"
+                className="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                <div className="row">
+                  {inputFields.map(({ name, label }) => (
+                    <div className="col-md-6" key={name}>
+                      <div className="mb-3">
+                        <label className="form-label">{label}</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          name={name}
+                          value={inputs[name]}
+                          onChange={handleInputs}
+                        />
+                        {errors[name]?.required && (
+                          <span className="text-danger">This field is required</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-light"
+                  data-bs-dismiss="modal"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      {/* Delete Popup */}
+      <Dialog open={open}>
+        <DialogContent>
+          <div className="text-center p-4">
+            <h5 className="mb-4" style={{ fontSize: '14px' }}>
+              Are you sure you want to Delete <br /> the selected Promotion ?
+            </h5>
+            <button
+              type="button"
+              className="btn btn-save btn-success px-3 py-1 border-0 rounded-pill fw-semibold  mx-3"
+              onClick={deleteFileData}
+              style={{ fontSize: '12px' }}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              className="btn btn-cancel  btn-danger px-3 py-1 border-0 rounded-pill fw-semibold  "
+              onClick={closePopup}
+              style={{ fontSize: '12px' }}
+            >
+              No
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 };
 

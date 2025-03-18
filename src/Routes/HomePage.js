@@ -1,5 +1,6 @@
 import React from "react";
 import { Routes, Route } from 'react-router-dom';
+import Test from "./test"
 import HomeTable from "../pages/HomeOuter";
 import CompanyNmae from "../pages/CompanyName";
 import DomainSearch from "../pages/DomainSearch";
@@ -17,6 +18,7 @@ function HomePage() {
     <div>
 
       <Routes>
+        <Route path="/testing" element={<Test />} />
         <Route path="/FileUpload" element={<HomeTable />} />
         <Route path="/CompanyName" element={<CompanyNmae />} />
         <Route path="/DomainSearch" element={<DomainSearch />} />
